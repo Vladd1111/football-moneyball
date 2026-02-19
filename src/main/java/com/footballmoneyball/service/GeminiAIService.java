@@ -136,43 +136,27 @@ public class GeminiAIService {
             double awayXg) {
 
         return String.format("""
-            You are an expert football analyst. Analyze this upcoming match:
-            
-            HOME TEAM: %s
-            - Recent form: %.1f points from last 10 matches
-            - Average xG: %.2f per match
-            - Average Goals Scored: %.2f per match
-            - Average Goals Conceded: %.2f per match
-            
-            AWAY TEAM: %s
-            - Recent form: %.1f points from last 10 matches
-            - Average xG: %.2f per match
-            - Average Goals Scored: %.2f per match
-            - Average Goals Conceded: %.2f per match
-            
-            OUR STATISTICAL PREDICTION:
-            - Home Win: %.1f%%
-            - Draw: %.1f%%
-            - Away Win: %.1f%%
-            - Predicted Score (xG): %.2f - %.2f
-            
-            Provide a 3-4 sentence expert analysis covering:
-            1. Key factors influencing this prediction
-            2. Which team has the advantage and why
-            3. Potential risks or surprises to watch for
-            
-            Be concise and insightful.
-            """,
+        Analyze this match in exactly 3-4 complete sentences:
+        
+        %s (Home) vs %s (Away)
+        
+        Stats:
+        - Home: %.1f form points, %.2f xG avg
+        - Away: %.1f form points, %.2f xG avg
+        
+        Prediction:
+        - Home Win: %.1f%% | Draw: %.1f%% | Away Win: %.1f%%
+        - Expected: %.2f - %.2f
+        
+        Provide expert analysis covering: main advantage, key factor, and potential outcome.
+        Write complete sentences only.
+        """,
                 homeTeam.getName(),
+                awayTeam.getName(),
                 homeForm.formPoints,
                 homeForm.avgXg,
-                homeForm.avgGoalsScored,
-                homeForm.avgGoalsConceded,
-                awayTeam.getName(),
                 awayForm.formPoints,
                 awayForm.avgXg,
-                awayForm.avgGoalsScored,
-                awayForm.avgGoalsConceded,
                 probs.homeWin * 100,
                 probs.draw * 100,
                 probs.awayWin * 100,

@@ -64,8 +64,16 @@ public class GeminiAIService {
                             ))
                     ),
                     "generationConfig", Map.of(
-                            "temperature", 0.7,        // Creativity level (0-1)
-                            "maxOutputTokens", 1000     // Max response length
+                            "temperature", 0.7,
+                            "maxOutputTokens", 2048,          // Increased further
+                            "topP", 0.95,
+                            "topK", 40
+                    ),
+                    "safetySettings", List.of(
+                            Map.of("category", "HARM_CATEGORY_HARASSMENT", "threshold", "BLOCK_NONE"),
+                            Map.of("category", "HARM_CATEGORY_HATE_SPEECH", "threshold", "BLOCK_NONE"),
+                            Map.of("category", "HARM_CATEGORY_SEXUALLY_EXPLICIT", "threshold", "BLOCK_NONE"),
+                            Map.of("category", "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold", "BLOCK_NONE")
                     )
             );
 
@@ -135,22 +143,12 @@ public class GeminiAIService {
             double homeXg,
             double awayXg) {
 
-        return String.format("""
-        Analyze this match in exactly 3-4 complete sentences:
-        
-        %s (Home) vs %s (Away)
-        
-        Stats:
-        - Home: %.1f form points, %.2f xG avg
-        - Away: %.1f form points, %.2f xG avg
-        
-        Prediction:
-        - Home Win: %.1f%% | Draw: %.1f%% | Away Win: %.1f%%
-        - Expected: %.2f - %.2f
-        
-        Provide expert analysis covering: main advantage, key factor, and potential outcome.
-        Write complete sentences only.
-        """,
+        return String.format("You are a football analyst. Write EXACTLY 4 complete sentences analyzing this match. " +
+                        "Do NOT stop mid-sentence.\n\n" +
+                        "%s (Home, Form: %.0f pts, xG: %.2f) vs %s (Away, Form: %.0f pts, xG: %.2f)\n" +
+                        "Prediction: Home %.0f%%, Draw %.0f%%, Away %.0f%%\n" +
+                        "Expected: %.2f-%.2f\n\n" +
+                        "Write 4 complete sentences covering: 1) main advantage, 2) key stats, 3) risks, 4) likely outcome.",
                 homeTeam.getName(),
                 awayTeam.getName(),
                 homeForm.formPoints,

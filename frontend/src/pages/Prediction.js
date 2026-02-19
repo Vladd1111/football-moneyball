@@ -153,7 +153,7 @@ function Prediction() {
           {prediction.aiAnalysis && (
             <div className="ai-analysis">
               <h4>🤖 AI Analysis</h4>
-              <p>{prediction.aiAnalysis}</p>
+              <p style={{whiteSpace: 'pre-wrap'}}>{prediction.aiAnalysis}</p>
             </div>
           )}
 

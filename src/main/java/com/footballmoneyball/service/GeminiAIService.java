@@ -65,7 +65,7 @@ public class GeminiAIService {
                     ),
                     "generationConfig", Map.of(
                             "temperature", 0.7,        // Creativity level (0-1)
-                            "maxOutputTokens", 500     // Max response length
+                            "maxOutputTokens", 1000     // Max response length
                     )
             );
 

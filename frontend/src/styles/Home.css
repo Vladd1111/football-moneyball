@@ -1,0 +1,138 @@
+.home-container {
+  min-height: 100vh;
+  padding: 20px;
+}
+
+.header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  background: white;
+  padding: 20px 30px;
+  border-radius: 15px;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
+  margin-bottom: 30px;
+}
+
+.header h1 {
+  color: #667eea;
+  font-size: 1.8rem;
+}
+
+.user-info {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+  color: #666;
+}
+
+.logout-btn {
+  padding: 8px 20px;
+  background: #ff4444;
+  color: white;
+  border-radius: 8px;
+  font-size: 0.9rem;
+}
+
+.matches-section {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.matches-section h2 {
+  color: white;
+  font-size: 2rem;
+  margin-bottom: 10px;
+}
+
+.matches-section .subtitle {
+  color: rgba(255, 255, 255, 0.9);
+  margin-bottom: 30px;
+}
+
+.matches-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+  gap: 20px;
+}
+
+.match-card {
+  background: white;
+  padding: 25px;
+  border-radius: 15px;
+  cursor: pointer;
+  transition: all 0.3s ease;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.match-card:hover {
+  transform: translateY(-5px);
+  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.2);
+}
+
+.match-time {
+  text-align: center;
+  color: #667eea;
+  font-weight: 600;
+  margin-bottom: 20px;
+  font-size: 0.9rem;
+}
+
+.teams {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 20px;
+}
+
+.team {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.team.home {
+  align-items: flex-start;
+}
+
+.team.away {
+  align-items: flex-end;
+}
+
+.team-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  color: #333;
+}
+
+.team-stats {
+  font-size: 0.85rem;
+  color: #999;
+}
+
+.vs {
+  font-weight: 800;
+  color: #667eea;
+  font-size: 1.2rem;
+  padding: 0 20px;
+}
+
+.predict-hint {
+  text-align: center;
+  color: #667eea;
+  font-weight: 600;
+  padding-top: 15px;
+  border-top: 2px solid #f0f0f0;
+}
+
+@media (max-width: 768px) {
+  .header {
+    flex-direction: column;
+    gap: 15px;
+  }
+
+  .matches-grid {
+    grid-template-columns: 1fr;
+  }
+}

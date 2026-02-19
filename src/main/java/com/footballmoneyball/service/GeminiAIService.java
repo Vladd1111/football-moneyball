@@ -143,16 +143,17 @@ public class GeminiAIService {
             double homeXg,
             double awayXg) {
 
-        return String.format("You are a football analyst. Write EXACTLY 4 complete sentences analyzing this match. " +
+        return String.format(
+                "You are a football analyst. Write EXACTLY 4 complete sentences analyzing this match. " +
                         "Do NOT stop mid-sentence.\n\n" +
-                        "%s (Home, Form: %.0f pts, xG: %.2f) vs %s (Away, Form: %.0f pts, xG: %.2f)\n" +
-                        "Prediction: Home %.0f%%, Draw %.0f%%, Away %.0f%%\n" +
+                        "%s (Home, Form: %.1f pts, xG: %.2f) vs %s (Away, Form: %.1f pts, xG: %.2f)\n" +
+                        "Prediction: Home %.1f%%, Draw %.1f%%, Away %.1f%%\n" +
                         "Expected: %.2f-%.2f\n\n" +
                         "Write 4 complete sentences covering: 1) main advantage, 2) key stats, 3) risks, 4) likely outcome.",
                 homeTeam.getName(),
-                awayTeam.getName(),
                 homeForm.formPoints,
                 homeForm.avgXg,
+                awayTeam.getName(),
                 awayForm.formPoints,
                 awayForm.avgXg,
                 probs.homeWin * 100,

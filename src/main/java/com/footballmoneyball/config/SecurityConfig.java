@@ -93,7 +93,8 @@ public class SecurityConfig {
         configuration.setAllowedOrigins(Arrays.asList(
                 "http://localhost:3000",
                 "http://localhost:3001",
-                "https://*"
+                "https://football-moneyball-frontend-production.up.railway.app",  // ADD THIS!
+                "https://*.up.railway.app"  // Allow all Railway domains
         ));
 
         // Allow all methods

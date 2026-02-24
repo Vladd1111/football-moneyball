@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 import { predictionsAPI } from '../services/api';
+import MarketCard from '../components/MarketCard';
+import CorrectScoreGrid from '../components/CorrectScoreGrid';
 import '../styles/Prediction.css';
 
 function Prediction() {
@@ -8,10 +10,11 @@ function Prediction() {
   const navigate = useNavigate();
   const { match } = location.state || {};
 
-  const [prediction, setPrediction] = useState(null);
+  const [markets, setMarkets] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [includeAI, setIncludeAI] = useState(false);
+  const [showFullMarkets, setShowFullMarkets] = useState(false);
 
   if (!match) {
     return (
@@ -27,18 +30,67 @@ function Prediction() {
     setError('');
 
     try {
-      const response = await predictionsAPI.predict(
+      const response = await predictionsAPI.getBettingMarkets(
         match.homeTeam.id,
         match.awayTeam.id,
         includeAI
       );
-      setPrediction(response.data);
+      setMarkets(response.data);
+      setShowFullMarkets(true);
     } catch (err) {
       setError('Failed to generate prediction');
       console.error(err);
     } finally {
       setLoading(false);
     }
+  };
+
+  const formatMatchOutcome = (outcome) => {
+    return [
+      {
+        label: `${match.homeTeam.name} Win`,
+        ...outcome.homeWin
+      },
+      {
+        label: 'Draw',
+        ...outcome.draw
+      },
+      {
+        label: `${match.awayTeam.name} Win`,
+        ...outcome.awayWin
+      }
+    ];
+  };
+
+  const formatBTTS = (btts) => {
+    return [
+      {
+        label: 'Both Teams Score (GG)',
+        ...btts.yes
+      },
+      {
+        label: 'One/Both Blank (NG)',
+        ...btts.no
+      }
+    ];
+  };
+
+  const formatOverUnder = (ou) => {
+    return [
+      { label: 'Over 0.5', ...ou['OVER_0.5'] },
+      { label: 'Over 1.5', ...ou['OVER_1.5'] },
+      { label: 'Over 2.5', ...ou['OVER_2.5'] },
+      { label: 'Over 3.5', ...ou['OVER_3.5'] },
+      { label: 'Over 4.5', ...ou['OVER_4.5'] },
+    ];
+  };
+
+  const formatDoubleChance = (dc) => {
+    return [
+      { label: '1X (Home or Draw)', ...dc['1X'] },
+      { label: '12 (Home or Away)', ...dc['12'] },
+      { label: 'X2 (Draw or Away)', ...dc['X2'] },
+    ];
   };
 
   return (
@@ -48,16 +100,26 @@ function Prediction() {
       </button>
 
       <div className="match-header">
-        <h2>{match.homeTeam.name}</h2>
+        <div className="team-section">
+          <h2>{match.homeTeam.name}</h2>
+          <div className="team-stats">
+            {match.homeTeam.wins}W {match.homeTeam.draws}D {match.homeTeam.losses}L
+          </div>
+        </div>
         <span className="vs-large">VS</span>
-        <h2>{match.awayTeam.name}</h2>
+        <div className="team-section">
+          <h2>{match.awayTeam.name}</h2>
+          <div className="team-stats">
+            {match.awayTeam.wins}W {match.awayTeam.draws}D {match.awayTeam.losses}L
+          </div>
+        </div>
       </div>
 
       <div className="match-info">
         <p>{new Date(match.matchDate).toLocaleString()}</p>
       </div>
 
-      {!prediction && (
+      {!markets && (
         <div className="predict-controls">
           <label className="ai-toggle">
             <input
@@ -73,91 +135,71 @@ function Prediction() {
             onClick={handlePredict}
             disabled={loading}
           >
-            {loading ? 'Predicting...' : '🎯 Generate Prediction'}
+            {loading ? 'Generating Predictions...' : '🎯 Generate Full Betting Markets'}
           </button>
         </div>
       )}
 
       {error && <div className="error">{error}</div>}
 
-      {prediction && (
-        <div className="prediction-results">
-          <h3>Match Prediction</h3>
+      {markets && (
+        <div className="betting-markets">
 
-          <div className="probabilities">
-            <div className="prob-bar">
-              <div className="prob-label">
-                <span>{match.homeTeam.name} Win</span>
-                <span className="prob-value">
-                  {(prediction.homeWinProbability * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="bar">
-                <div
-                  className="fill home-fill"
-                  style={{ width: `${prediction.homeWinProbability * 100}%` }}
-                />
-              </div>
-            </div>
+          {/* Match Outcome */}
+          <MarketCard
+            title="⚽ Match Result"
+            markets={formatMatchOutcome(markets.matchOutcome)}
+            type="triple"
+          />
 
-            <div className="prob-bar">
-              <div className="prob-label">
-                <span>Draw</span>
-                <span className="prob-value">
-                  {(prediction.drawProbability * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="bar">
-                <div
-                  className="fill draw-fill"
-                  style={{ width: `${prediction.drawProbability * 100}%` }}
-                />
-              </div>
-            </div>
+          {/* Over/Under Goals */}
+          <MarketCard
+            title="📈 Total Goals"
+            markets={formatOverUnder(markets.overUnder)}
+            type="grid"
+          />
 
-            <div className="prob-bar">
-              <div className="prob-label">
-                <span>{match.awayTeam.name} Win</span>
-                <span className="prob-value">
-                  {(prediction.awayWinProbability * 100).toFixed(1)}%
-                </span>
-              </div>
-              <div className="bar">
-                <div
-                  className="fill away-fill"
-                  style={{ width: `${prediction.awayWinProbability * 100}%` }}
-                />
-              </div>
-            </div>
-          </div>
+          {/* Both Teams to Score */}
+          <MarketCard
+            title="🎯 Both Teams to Score"
+            markets={formatBTTS(markets.bothTeamsToScore)}
+            type="dual"
+          />
 
-          <div className="expected-score">
-            <h4>Expected Score</h4>
-            <div className="score">
-              <span className="score-value">
-                {prediction.predictedHomeXg.toFixed(2)}
-              </span>
-              <span className="score-separator">-</span>
-              <span className="score-value">
-                {prediction.predictedAwayXg.toFixed(2)}
+          {/* Double Chance */}
+          <MarketCard
+            title="🎲 Double Chance"
+            markets={formatDoubleChance(markets.doubleChance)}
+            type="grid"
+          />
+
+          {/* Correct Score */}
+          <CorrectScoreGrid scores={markets.topCorrectScores} />
+
+          {/* Confidence & AI */}
+          <div className="additional-info">
+            <div className="confidence-badge">
+              <span className="label">Confidence:</span>
+              <span className={`badge ${markets.confidence.toLowerCase()}`}>
+                {markets.confidence}
               </span>
             </div>
+
+            {markets.aiAnalysis && (
+              <div className="ai-analysis">
+                <h4>🤖 AI Expert Analysis</h4>
+                <p>{markets.aiAnalysis}</p>
+              </div>
+            )}
           </div>
 
-          <div className="confidence">
-            Confidence: <span className={`badge ${prediction.confidence.toLowerCase()}`}>
-              {prediction.confidence}
-            </span>
-          </div>
-
-          {prediction.aiAnalysis && (
-            <div className="ai-analysis">
-              <h4>🤖 AI Analysis</h4>
-              <p style={{whiteSpace: 'pre-wrap'}}>{prediction.aiAnalysis}</p>
-            </div>
-          )}
-
-          <button className="new-prediction-btn" onClick={() => setPrediction(null)}>
+          <button
+            className="new-prediction-btn"
+            onClick={() => {
+              setMarkets(null);
+              setShowFullMarkets(false);
+            }}
+          >
             Generate New Prediction
           </button>
         </div>

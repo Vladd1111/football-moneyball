@@ -48,6 +48,14 @@ export const predictionsAPI = {
       awayTeamId,
       includeAiAnalysis,
     }),
+
+  // NEW: Get comprehensive betting markets
+  getBettingMarkets: (homeTeamId, awayTeamId, includeAiAnalysis = false) =>
+    api.post('/predictions/markets', {
+      homeTeamId,
+      awayTeamId,
+      includeAiAnalysis,
+    }),
 };
 
 export default api;

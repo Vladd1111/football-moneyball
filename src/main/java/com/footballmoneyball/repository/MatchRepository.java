@@ -7,6 +7,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 /**
@@ -51,4 +52,14 @@ public interface MatchRepository extends JpaRepository<Match, Long> {
      * Find all upcoming matches (not completed)
      */
     List<Match> findByCompletedFalse();
+
+    /**
+     * Check if a match already exists for the given teams and date
+     * Used to prevent duplicate match entries
+     */
+    boolean existsByHomeTeamAndAwayTeamAndMatchDate(
+            Team homeTeam,
+            Team awayTeam,
+            LocalDateTime matchDate
+    );
 }

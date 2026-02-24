@@ -1,0 +1,166 @@
+.market-card {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  margin-bottom: 20px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.market-title {
+  font-size: 1.3rem;
+  color: #667eea;
+  margin-bottom: 20px;
+  font-weight: 700;
+}
+
+/* Triple Layout (Match Outcome) */
+.market-options-triple {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 15px;
+}
+
+.market-option {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 12px;
+  text-align: center;
+}
+
+.option-label {
+  font-size: 0.9rem;
+  color: #666;
+  font-weight: 600;
+  margin-bottom: 10px;
+  display: block;
+}
+
+.option-probability {
+  font-size: 1.8rem;
+  font-weight: 800;
+  color: #667eea;
+  margin-bottom: 5px;
+}
+
+.option-odds {
+  font-size: 1.1rem;
+  color: #999;
+  margin-bottom: 10px;
+}
+
+.probability-bar {
+  height: 8px;
+  background: #e0e0e0;
+  border-radius: 10px;
+  overflow: hidden;
+  margin-top: 10px;
+}
+
+.probability-fill {
+  height: 100%;
+  background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+  border-radius: 10px;
+  transition: width 0.5s ease;
+}
+
+/* Dual Layout (BTTS) */
+.market-options-dual {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 15px;
+}
+
+.market-option-dual {
+  background: #f8f9fa;
+  padding: 20px;
+  border-radius: 12px;
+}
+
+.option-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 10px;
+}
+
+.option-header .option-label {
+  font-weight: 600;
+  color: #333;
+  font-size: 1rem;
+}
+
+.option-header .option-odds {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.market-option-dual .option-probability {
+  font-size: 1.5rem;
+  font-weight: 800;
+  color: #667eea;
+  margin-bottom: 10px;
+}
+
+/* Grid Layout (Over/Under, Double Chance) */
+.market-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 12px;
+}
+
+.market-item {
+  background: #f8f9fa;
+  padding: 15px;
+  border-radius: 10px;
+  transition: all 0.3s ease;
+  cursor: pointer;
+}
+
+.market-item:hover {
+  background: #667eea;
+  transform: translateY(-2px);
+  box-shadow: 0 5px 15px rgba(102, 126, 234, 0.3);
+}
+
+.market-item:hover .market-label,
+.market-item:hover .market-percentage,
+.market-item:hover .market-odds {
+  color: white;
+}
+
+.market-label {
+  font-size: 0.85rem;
+  color: #666;
+  font-weight: 600;
+  margin-bottom: 8px;
+}
+
+.market-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.market-percentage {
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: #667eea;
+}
+
+.market-odds {
+  font-size: 1rem;
+  color: #999;
+  font-weight: 600;
+}
+
+/* Mobile Responsive */
+@media (max-width: 768px) {
+  .market-options-triple {
+    grid-template-columns: 1fr;
+  }
+
+  .market-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}

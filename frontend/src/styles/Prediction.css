@@ -71,12 +71,13 @@
 }
 
 .predict-btn {
-  padding: 15px 40px;
+  padding: 18px 40px;
   background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
   color: white;
   border-radius: 12px;
-  font-size: 1.1rem;
-  font-weight: 600;
+  font-size: 1.2rem;
+  font-weight: 700;
+  box-shadow: 0 5px 20px rgba(102, 126, 234, 0.4);
 }
 
 .predict-btn:disabled {
@@ -253,6 +254,37 @@
   color: #667eea;
   border-radius: 10px;
   font-weight: 600;
+}
+
+.betting-markets {
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.additional-info {
+  background: white;
+  border-radius: 15px;
+  padding: 25px;
+  margin-bottom: 20px;
+  box-shadow: 0 5px 15px rgba(0, 0, 0, 0.1);
+}
+
+.confidence-badge {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 20px;
+  font-size: 1.1rem;
+}
+
+.confidence-badge .label {
+  color: #666;
+  font-weight: 600;
+}
+
+.predict-btn:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 25px rgba(102, 126, 234, 0.5);
 }
 
 @media (max-width: 768px) {

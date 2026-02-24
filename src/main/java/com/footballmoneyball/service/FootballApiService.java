@@ -11,21 +11,17 @@ import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
-import reactor.core.publisher.Mono;
 
-import java.time.Instant;
-import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.ZoneOffset;
+import java.time.format.DateTimeFormatter;
 import java.util.ArrayList;
 import java.util.List;
-
 
 /**
  * Football API Service
  *
- * Integrates with API-Football (RapidAPI) to fetch:
- * - Real fixtures
+ * Integrates with free-api-live-football-data (RapidAPI) to fetch:
+ * - Real fixtures by league
  * - Team statistics
  * - Live match data
  *
@@ -43,15 +39,15 @@ public class FootballApiService {
     private final TeamRepository teamRepository;
     private final MatchRepository matchRepository;
 
-    private static final String API_BASE_URL = "https://sportapi7.p.rapidapi.com/api/v1";
-    private static final String API_HOST = "sportapi7.p.rapidapi.com";
+    private static final String API_BASE_URL = "https://free-api-live-football-data.p.rapidapi.com";
+    private static final String API_HOST     = "free-api-live-football-data.p.rapidapi.com";
+    private static final int    LEAGUE_ID    = 42;
 
     /**
-     * Fetch today's football scheduled events
+     * Fetch upcoming fixtures for the configured league
      */
     public List<Match> fetchUpcomingFixtures() {
-        String date = LocalDate.now().toString(); // yyyy-MM-dd
-        log.info("Fetching scheduled fixtures from SportAPI7 for date: {}", date);
+        log.info("Fetching fixtures from free-api-live-football-data for leagueId={}", LEAGUE_ID);
 
         try {
             WebClient webClient = webClientBuilder
@@ -61,7 +57,7 @@ public class FootballApiService {
                     .build();
 
             String response = webClient.get()
-                    .uri("/sport/football/scheduled-events/" + date)
+                    .uri("/football-get-all-matches-by-league?leagueid=" + LEAGUE_ID)
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
@@ -78,23 +74,30 @@ public class FootballApiService {
      * Fetch team statistics for a team
      */
     public void updateTeamStatistics(Long teamId, int apiFootballTeamId) {
-        log.info("Team statistics fetch not supported by SportAPI7 for team ID: {}", apiFootballTeamId);
+        log.info("Fetching team statistics for API team ID: {}", apiFootballTeamId);
+
+        try {
+            WebClient webClient = webClientBuilder
+                    .baseUrl(API_BASE_URL)
+                    .defaultHeader("X-RapidAPI-Key", apiKey)
+                    .defaultHeader("X-RapidAPI-Host", API_HOST)
+                    .build();
+
+            String response = webClient.get()
+                    .uri("/football-get-team-statistics?teamid=" + apiFootballTeamId)
+                    .retrieve()
+                    .bodyToMono(String.class)
+                    .block();
+
+            updateTeamFromStats(teamId, response);
+
+        } catch (Exception e) {
+            log.error("Failed to fetch team stats: {}", e.getMessage(), e);
+        }
     }
 
     /**
-     * Parse SportAPI7 scheduled-events response and save to database.
-     *
-     * Response shape:
-     * {
-     *   "events": [
-     *     {
-     *       "id": 12345,
-     *       "homeTeam": { "id": 1, "name": "Arsenal" },
-     *       "awayTeam": { "id": 2, "name": "Chelsea" },
-     *       "startTimestamp": 1644624000
-     *     }
-     *   ]
-     * }
+     * Parse fixtures response and save to database
      */
     private List<Match> parseFixtures(String jsonResponse) {
         List<Match> matches = new ArrayList<>();
@@ -102,27 +105,27 @@ public class FootballApiService {
         try {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(jsonResponse);
-            JsonNode events = root.path("events");
+            JsonNode fixtures = root.path("response");
 
-            for (JsonNode event : events) {
+            for (JsonNode fixture : fixtures) {
                 // Get team IDs from API
-                int homeTeamApiId = event.path("homeTeam").path("id").asInt();
-                int awayTeamApiId = event.path("awayTeam").path("id").asInt();
+                int homeTeamApiId = fixture.path("teams").path("home").path("id").asInt();
+                int awayTeamApiId = fixture.path("teams").path("away").path("id").asInt();
 
                 // Get or create teams in our database
                 Team homeTeam = getOrCreateTeam(
-                        event.path("homeTeam").path("name").asText(),
+                        fixture.path("teams").path("home").path("name").asText(),
                         homeTeamApiId
                 );
                 Team awayTeam = getOrCreateTeam(
-                        event.path("awayTeam").path("name").asText(),
+                        fixture.path("teams").path("away").path("name").asText(),
                         awayTeamApiId
                 );
 
-                // Parse match date from Unix timestamp (seconds)
-                long timestamp = event.path("startTimestamp").asLong();
-                LocalDateTime matchDate = LocalDateTime.ofInstant(
-                        Instant.ofEpochSecond(timestamp), ZoneOffset.UTC);
+                // Parse match date
+                String dateStr = fixture.path("fixture").path("date").asText();
+                LocalDateTime matchDate = LocalDateTime.parse(dateStr,
+                        DateTimeFormatter.ISO_DATE_TIME);
 
                 // Check if match already exists
                 boolean exists = matchRepository.existsByHomeTeamAndAwayTeamAndMatchDate(
@@ -171,7 +174,7 @@ public class FootballApiService {
                     Team saved = teamRepository.save(team);
                     log.info("Created new team: {}", teamName);
 
-                    // Fetch real statistics asynchronously
+                    // Fetch real statistics
                     updateTeamStatistics(saved.getId(), apiTeamId);
 
                     return saved;
@@ -204,7 +207,7 @@ public class FootballApiService {
 
             int played = wins + draws + losses;
             double avgXg = played > 0 ? (double) goalsScored / played : 1.5;
-            double avgXa = avgXg * 0.8; // Approximation
+            double avgXa = avgXg * 0.8;
 
             // Update team
             Team team = teamRepository.findById(teamId).orElse(null);

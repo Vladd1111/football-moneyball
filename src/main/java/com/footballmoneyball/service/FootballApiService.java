@@ -13,10 +13,13 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.reactive.function.client.WebClient;
 import reactor.core.publisher.Mono;
 
+import java.time.Instant;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
+
 
 /**
  * Football API Service
@@ -40,31 +43,25 @@ public class FootballApiService {
     private final TeamRepository teamRepository;
     private final MatchRepository matchRepository;
 
-    private static final String API_BASE_URL = "https://api-football-v1.p.rapidapi.com/v3";
-    private static final int PREMIER_LEAGUE_ID = 39; // Premier League
-    private static final String CURRENT_SEASON = "2024";
+    private static final String API_BASE_URL = "https://sportapi7.p.rapidapi.com/api/v1";
+    private static final String API_HOST = "sportapi7.p.rapidapi.com";
 
     /**
-     * Fetch upcoming Premier League fixtures
+     * Fetch today's football scheduled events
      */
     public List<Match> fetchUpcomingFixtures() {
-        log.info("Fetching upcoming fixtures from API-Football");
+        String date = LocalDate.now().toString(); // yyyy-MM-dd
+        log.info("Fetching scheduled fixtures from SportAPI7 for date: {}", date);
 
         try {
             WebClient webClient = webClientBuilder
                     .baseUrl(API_BASE_URL)
                     .defaultHeader("X-RapidAPI-Key", apiKey)
-                    .defaultHeader("X-RapidAPI-Host", "api-football-v1.p.rapidapi.com")
+                    .defaultHeader("X-RapidAPI-Host", API_HOST)
                     .build();
 
-            // Get next 10 fixtures for Premier League
             String response = webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/fixtures")
-                            .queryParam("league", PREMIER_LEAGUE_ID)
-                            .queryParam("season", CURRENT_SEASON)
-                            .queryParam("next", 10)
-                            .build())
+                    .uri("/sport/football/scheduled-events/" + date)
                     .retrieve()
                     .bodyToMono(String.class)
                     .block();
@@ -81,35 +78,23 @@ public class FootballApiService {
      * Fetch team statistics for a team
      */
     public void updateTeamStatistics(Long teamId, int apiFootballTeamId) {
-        log.info("Fetching team statistics for API team ID: {}", apiFootballTeamId);
-
-        try {
-            WebClient webClient = webClientBuilder
-                    .baseUrl(API_BASE_URL)
-                    .defaultHeader("X-RapidAPI-Key", apiKey)
-                    .defaultHeader("X-RapidAPI-Host", "api-football-v1.p.rapidapi.com")
-                    .build();
-
-            String response = webClient.get()
-                    .uri(uriBuilder -> uriBuilder
-                            .path("/teams/statistics")
-                            .queryParam("league", PREMIER_LEAGUE_ID)
-                            .queryParam("season", CURRENT_SEASON)
-                            .queryParam("team", apiFootballTeamId)
-                            .build())
-                    .retrieve()
-                    .bodyToMono(String.class)
-                    .block();
-
-            updateTeamFromStats(teamId, response);
-
-        } catch (Exception e) {
-            log.error("Failed to fetch team stats: {}", e.getMessage(), e);
-        }
+        log.info("Team statistics fetch not supported by SportAPI7 for team ID: {}", apiFootballTeamId);
     }
 
     /**
-     * Parse fixtures response and save to database
+     * Parse SportAPI7 scheduled-events response and save to database.
+     *
+     * Response shape:
+     * {
+     *   "events": [
+     *     {
+     *       "id": 12345,
+     *       "homeTeam": { "id": 1, "name": "Arsenal" },
+     *       "awayTeam": { "id": 2, "name": "Chelsea" },
+     *       "startTimestamp": 1644624000
+     *     }
+     *   ]
+     * }
      */
     private List<Match> parseFixtures(String jsonResponse) {
         List<Match> matches = new ArrayList<>();
@@ -117,27 +102,27 @@ public class FootballApiService {
         try {
             ObjectMapper mapper = new ObjectMapper();
             JsonNode root = mapper.readTree(jsonResponse);
-            JsonNode fixtures = root.path("response");
+            JsonNode events = root.path("events");
 
-            for (JsonNode fixture : fixtures) {
+            for (JsonNode event : events) {
                 // Get team IDs from API
-                int homeTeamApiId = fixture.path("teams").path("home").path("id").asInt();
-                int awayTeamApiId = fixture.path("teams").path("away").path("id").asInt();
+                int homeTeamApiId = event.path("homeTeam").path("id").asInt();
+                int awayTeamApiId = event.path("awayTeam").path("id").asInt();
 
                 // Get or create teams in our database
                 Team homeTeam = getOrCreateTeam(
-                        fixture.path("teams").path("home").path("name").asText(),
+                        event.path("homeTeam").path("name").asText(),
                         homeTeamApiId
                 );
                 Team awayTeam = getOrCreateTeam(
-                        fixture.path("teams").path("away").path("name").asText(),
+                        event.path("awayTeam").path("name").asText(),
                         awayTeamApiId
                 );
 
-                // Parse match date
-                String dateStr = fixture.path("fixture").path("date").asText();
-                LocalDateTime matchDate = LocalDateTime.parse(dateStr,
-                        DateTimeFormatter.ISO_DATE_TIME);
+                // Parse match date from Unix timestamp (seconds)
+                long timestamp = event.path("startTimestamp").asLong();
+                LocalDateTime matchDate = LocalDateTime.ofInstant(
+                        Instant.ofEpochSecond(timestamp), ZoneOffset.UTC);
 
                 // Check if match already exists
                 boolean exists = matchRepository.existsByHomeTeamAndAwayTeamAndMatchDate(
@@ -145,7 +130,6 @@ public class FootballApiService {
                 );
 
                 if (!exists) {
-                    // Create new match
                     Match match = Match.builder()
                             .homeTeam(homeTeam)
                             .awayTeam(awayTeam)

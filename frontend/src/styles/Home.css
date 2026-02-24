@@ -136,3 +136,19 @@
     grid-template-columns: 1fr;
   }
 }
+
+.refresh-btn {
+  background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+  color: white;
+  padding: 12px 24px;
+  border-radius: 10px;
+  font-weight: 600;
+  margin-bottom: 20px;
+  cursor: pointer;
+  border: none;
+}
+
+.refresh-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}

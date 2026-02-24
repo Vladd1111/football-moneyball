@@ -1,5 +1,6 @@
 package com.footballmoneyball.service;
 
+import com.footballmoneyball.dto.BettingMarkets;
 import com.footballmoneyball.dto.PredictionRequest;
 import com.footballmoneyball.dto.PredictionResponse;
 import com.footballmoneyball.model.Match;
@@ -10,12 +11,16 @@ import com.footballmoneyball.repository.PredictionRepository;
 import com.footballmoneyball.repository.TeamRepository;
 import com.footballmoneyball.service.GeminiAIService.MatchProbabilities;
 import com.footballmoneyball.service.GeminiAIService.TeamForm;
+import com.footballmoneyball.util.OddsConverter;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Prediction Service - The Brain of Football Moneyball
@@ -396,5 +401,235 @@ public class PredictionService {
      */
     public List<Prediction> getRecentPredictions() {
         return predictionRepository.findTop10ByOrderByCreatedAtDesc();
+    }
+
+    // -------------------------------------------------------------------------
+    // Bridge overloads used by calculateBettingMarkets
+    // -------------------------------------------------------------------------
+
+    /**
+     * Convenience overload: fetch recent matches then delegate to the full form method.
+     */
+    private TeamForm calculateTeamForm(Team team) {
+        List<Match> recentMatches = matchRepository.findLast10MatchesByTeam(team.getId());
+        return calculateTeamForm(team, recentMatches, true);
+    }
+
+    /**
+     * Overload used by calculateBettingMarkets: derives defending form internally.
+     */
+    private double calculateExpectedGoals(
+            Team attackingTeam,
+            Team defendingTeam,
+            TeamForm attackingForm,
+            boolean isHome) {
+        TeamForm defendingForm = calculateTeamForm(defendingTeam);
+        return calculateExpectedGoals(attackingForm, defendingForm, isHome);
+    }
+
+    /**
+     * Alias for calculateConfidence used by calculateBettingMarkets.
+     */
+    private String determineConfidence(MatchProbabilities probs) {
+        return calculateConfidence(probs);
+    }
+
+    // -------------------------------------------------------------------------
+    // Betting markets
+    // -------------------------------------------------------------------------
+
+    /**
+     * Calculate comprehensive betting markets
+     */
+    public BettingMarkets calculateBettingMarkets(
+            Team homeTeam,
+            Team awayTeam,
+            boolean includeAiAnalysis) {
+
+        // Calculate team form
+        TeamForm homeForm = calculateTeamForm(homeTeam);
+        TeamForm awayForm = calculateTeamForm(awayTeam);
+
+        // Calculate expected goals
+        double homeXg = calculateExpectedGoals(homeTeam, awayTeam, homeForm, true);
+        double awayXg = calculateExpectedGoals(awayTeam, homeTeam, awayForm, false);
+
+        // Calculate match outcome probabilities
+        MatchProbabilities probs = calculateMatchProbabilities(homeXg, awayXg);
+
+        // Build betting markets
+        BettingMarkets markets = BettingMarkets.builder()
+                .matchOutcome(buildMatchOutcome(probs))
+                .overUnder(calculateOverUnder(homeXg, awayXg))
+                .bothTeamsToScore(calculateBTTS(homeXg, awayXg))
+                .doubleChance(calculateDoubleChance(probs))
+                .topCorrectScores(calculateTopCorrectScores(homeXg, awayXg, 10))
+                .confidence(determineConfidence(probs))
+                .build();
+
+        // Add AI analysis if requested
+        if (includeAiAnalysis && geminiAIService != null) {
+            try {
+                log.info("Requesting AI analysis from Gemini...");
+                String analysis = geminiAIService.generateMatchAnalysis(
+                        homeTeam, awayTeam, homeForm, awayForm, probs, homeXg, awayXg
+                );
+                markets.setAiAnalysis(analysis);
+            } catch (Exception e) {
+                log.error("Failed to get AI analysis: {}", e.getMessage());
+                markets.setAiAnalysis("AI analysis could not be generated due to a technical error.");
+            }
+        }
+
+        return markets;
+    }
+
+    /**
+     * Build match outcome with odds
+     */
+    private BettingMarkets.MatchOutcome buildMatchOutcome(MatchProbabilities probs) {
+        return BettingMarkets.MatchOutcome.builder()
+                .homeWin(OddsConverter.convertProbability(probs.homeWin))
+                .draw(OddsConverter.convertProbability(probs.draw))
+                .awayWin(OddsConverter.convertProbability(probs.awayWin))
+                .build();
+    }
+
+    /**
+     * Calculate Over/Under goals markets
+     */
+    private Map<String, BettingMarkets.MarketOdds> calculateOverUnder(double homeXg, double awayXg) {
+        Map<String, BettingMarkets.MarketOdds> overUnder = new HashMap<>();
+
+        double[][] scoreProbs = calculateScoreProbabilities(homeXg, awayXg);
+
+        // Over/Under 0.5
+        double under05 = scoreProbs[0][0];
+        overUnder.put("OVER_0.5", OddsConverter.convertProbability(1 - under05));
+        overUnder.put("UNDER_0.5", OddsConverter.convertProbability(under05));
+
+        // Over/Under 1.5
+        double under15 = scoreProbs[0][0] + scoreProbs[1][0] + scoreProbs[0][1];
+        overUnder.put("OVER_1.5", OddsConverter.convertProbability(1 - under15));
+        overUnder.put("UNDER_1.5", OddsConverter.convertProbability(under15));
+
+        // Over/Under 2.5
+        double under25 = sumGoalsUnder(scoreProbs, 2);
+        overUnder.put("OVER_2.5", OddsConverter.convertProbability(1 - under25));
+        overUnder.put("UNDER_2.5", OddsConverter.convertProbability(under25));
+
+        // Over/Under 3.5
+        double under35 = sumGoalsUnder(scoreProbs, 3);
+        overUnder.put("OVER_3.5", OddsConverter.convertProbability(1 - under35));
+        overUnder.put("UNDER_3.5", OddsConverter.convertProbability(under35));
+
+        // Over/Under 4.5
+        double under45 = sumGoalsUnder(scoreProbs, 4);
+        overUnder.put("OVER_4.5", OddsConverter.convertProbability(1 - under45));
+        overUnder.put("UNDER_4.5", OddsConverter.convertProbability(under45));
+
+        return overUnder;
+    }
+
+    /**
+     * Helper: Sum probabilities for total goals <= threshold
+     */
+    private double sumGoalsUnder(double[][] scoreProbs, int threshold) {
+        double sum = 0.0;
+        for (int h = 0; h <= 5; h++) {
+            for (int a = 0; a <= 5; a++) {
+                if (h + a <= threshold) {
+                    sum += scoreProbs[h][a];
+                }
+            }
+        }
+        return sum;
+    }
+
+    /**
+     * Calculate Both Teams to Score (BTTS / GG-NG)
+     */
+    private BettingMarkets.BothTeamsToScore calculateBTTS(double homeXg, double awayXg) {
+        double[][] scoreProbs = calculateScoreProbabilities(homeXg, awayXg);
+
+        double ng = 0.0;
+
+        // Home scores 0 (any away score)
+        for (int a = 0; a <= 5; a++) {
+            ng += scoreProbs[0][a];
+        }
+
+        // Away scores 0 (any home score > 0)
+        for (int h = 1; h <= 5; h++) {
+            ng += scoreProbs[h][0];
+        }
+
+        double gg = 1 - ng;
+
+        return BettingMarkets.BothTeamsToScore.builder()
+                .yes(OddsConverter.convertProbability(gg))
+                .no(OddsConverter.convertProbability(ng))
+                .build();
+    }
+
+    /**
+     * Calculate Double Chance markets
+     */
+    private Map<String, BettingMarkets.MarketOdds> calculateDoubleChance(MatchProbabilities probs) {
+        Map<String, BettingMarkets.MarketOdds> doubleChance = new HashMap<>();
+
+        doubleChance.put("1X", OddsConverter.convertProbability(probs.homeWin + probs.draw));
+        doubleChance.put("12", OddsConverter.convertProbability(probs.homeWin + probs.awayWin));
+        doubleChance.put("X2", OddsConverter.convertProbability(probs.draw + probs.awayWin));
+
+        return doubleChance;
+    }
+
+    /**
+     * Calculate top N most likely correct scores
+     */
+    private List<BettingMarkets.CorrectScore> calculateTopCorrectScores(
+            double homeXg, double awayXg, int topN) {
+
+        double[][] scoreProbs = calculateScoreProbabilities(homeXg, awayXg);
+
+        List<BettingMarkets.CorrectScore> scores = new ArrayList<>();
+
+        for (int h = 0; h <= 5; h++) {
+            for (int a = 0; a <= 5; a++) {
+                scores.add(BettingMarkets.CorrectScore.builder()
+                        .homeGoals(h)
+                        .awayGoals(a)
+                        .probability(scoreProbs[h][a])
+                        .percentage(Math.round(scoreProbs[h][a] * 1000) / 10.0)
+                        .decimalOdds(Math.round((1.0 / scoreProbs[h][a]) * 100) / 100.0)
+                        .build());
+            }
+        }
+
+        // Sort by probability descending
+        scores.sort((s1, s2) -> Double.compare(s2.getProbability(), s1.getProbability()));
+
+        // Add rank
+        for (int i = 0; i < Math.min(topN, scores.size()); i++) {
+            scores.get(i).setRank(i + 1);
+        }
+
+        return scores.subList(0, Math.min(topN, scores.size()));
+    }
+
+    /**
+     * Calculate score probabilities matrix [home][away]
+     */
+    private double[][] calculateScoreProbabilities(double homeXg, double awayXg) {
+        double[][] probs = new double[6][6];
+
+        for (int h = 0; h <= 5; h++) {
+            for (int a = 0; a <= 5; a++) {
+                probs[h][a] = poissonProbability(h, homeXg) * poissonProbability(a, awayXg);
+            }
+        }
+
+        return probs;
     }
 }

@@ -1,8 +1,11 @@
 package com.footballmoneyball.controller;
 
+import com.footballmoneyball.dto.BettingMarkets;
 import com.footballmoneyball.dto.PredictionRequest;
 import com.footballmoneyball.dto.PredictionResponse;
 import com.footballmoneyball.model.Prediction;
+import com.footballmoneyball.model.Team;
+import com.footballmoneyball.repository.TeamRepository;
 import com.footballmoneyball.service.PredictionService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -31,6 +34,7 @@ import java.util.List;
 public class PredictionController {
 
     private final PredictionService predictionService;
+    private final TeamRepository teamRepository;
 
     /**
      * Make a match prediction
@@ -69,6 +73,43 @@ public class PredictionController {
                 response.getAwayWinProbability(), response.getAwayTeamName());
 
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Generate comprehensive betting markets prediction
+     *
+     * POST /api/predictions/markets
+     *
+     * Request body:
+     * {
+     *   "homeTeamId": 1,
+     *   "awayTeamId": 2,
+     *   "includeAiAnalysis": true
+     * }
+     */
+    @PostMapping("/markets")
+    @PreAuthorize("hasAnyAuthority('ADMIN', 'ANALYST', 'GUEST')")
+    public ResponseEntity<BettingMarkets> predictBettingMarkets(@RequestBody PredictionRequest request) {
+        log.info("Generating betting markets for: homeTeam={}, awayTeam={}, AI={}",
+                request.getHomeTeamId(), request.getAwayTeamId(), request.getIncludeAiAnalysis());
+
+        // Validate team IDs
+        Team homeTeam = teamRepository.findById(request.getHomeTeamId())
+                .orElseThrow(() -> new RuntimeException("Home team not found"));
+
+        Team awayTeam = teamRepository.findById(request.getAwayTeamId())
+                .orElseThrow(() -> new RuntimeException("Away team not found"));
+
+        // Calculate comprehensive markets
+        BettingMarkets markets = predictionService.calculateBettingMarkets(
+                homeTeam,
+                awayTeam,
+                Boolean.TRUE.equals(request.getIncludeAiAnalysis())
+        );
+
+        log.info("Successfully generated betting markets");
+
+        return ResponseEntity.ok(markets);
     }
 
     /**
